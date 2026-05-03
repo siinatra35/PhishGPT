@@ -1,0 +1,8 @@
+python-dotenv
+requests
+pymongo
+selenium
+webdriver-manager
+Pillow
+numpy
+pytesseract

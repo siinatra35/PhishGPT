@@ -1,0 +1,139 @@
+services:
+
+  # --- MongoDB ---------------------------------------------------------------
+  gpt_db:
+    build:
+      context: .
+      target: gpt_db
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_DATABASE: gpt_app
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.runCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: always
+    networks:
+      - phishgpt
+
+  # --- Flask API -------------------------------------------------------------
+  flask_app:
+    build:
+      context: .
+      target: flask_app
+    ports:
+      - "5000:5000"
+    env_file: .env
+    environment:
+      DB_URL: mongodb://gpt_db:27017
+      DB_NAME: gpt_app
+    depends_on:
+      gpt_db:
+        condition: service_healthy
+    restart: on-failure
+    networks:
+      - phishgpt
+
+  # --- Redirect checker ------------------------------------------------------
+  redirect_box:
+    build:
+      context: .
+      target: redirect_box
+    env_file: .env
+    environment:
+      DB_URL: mongodb://gpt_db:27017
+      BASE_APP: http://flask_app:5000
+    depends_on:
+      gpt_db:
+        condition: service_healthy
+      flask_app:
+        condition: service_started
+    restart: on-failure
+    networks:
+      - phishgpt
+
+  # --- Net tools --------------------------------------------------------------
+  net_tools:
+    build:
+      context: .
+      target: net_tools
+    env_file: .env
+    environment:
+      DB_URL: mongodb://gpt_db:27017
+      BASE_APP: http://flask_app:5000
+    depends_on:
+      gpt_db:
+        condition: service_healthy
+      flask_app:
+        condition: service_started
+    restart: on-failure
+    networks:
+      - phishgpt
+
+  # --- Site OCR ---------------------------------------------------------------
+  ocr_box:
+    build:
+      context: .
+      target: ocr_box
+    env_file: .env
+    environment:
+      DB_URL: mongodb://gpt_db:27017
+      BASE_APP: http://flask_app:5000
+    depends_on:
+      gpt_db:
+        condition: service_healthy
+      flask_app:
+        condition: service_started
+    restart: on-failure
+    networks:
+      - phishgpt
+
+  # --- Screenshot -------------------------------------------------------------
+  screenshot_box:
+    build:
+      context: .
+      target: screenshot_box
+    env_file: .env
+    environment:
+      DB_URL: mongodb://gpt_db:27017
+      BASE_APP: http://flask_app:5000
+    depends_on:
+      gpt_db:
+        condition: service_healthy
+      flask_app:
+        condition: service_started
+    restart: on-failure
+    networks:
+      - phishgpt
+
+  # --- AI Prompt (Claude / Ollama) -------------------------------------------
+  ai_prompt:
+    build:
+      context: .
+      target: ai_prompt
+    env_file: .env
+    environment:
+      DB_URL: mongodb://gpt_db:27017
+      BASE_APP: http://flask_app:5000
+      # AI_BACKEND: ollama           # or "claude"
+      # OLLAMA_HOST: http://host.docker.internal:11434
+      # ANTHROPIC_API_KEY: sk-ant-...
+    depends_on:
+      gpt_db:
+        condition: service_healthy
+      flask_app:
+        condition: service_started
+    restart: on-failure
+    networks:
+      - phishgpt
+
+volumes:
+  mongo_data:
+
+networks:
+  phishgpt:
+    driver: bridge

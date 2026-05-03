@@ -1,0 +1,6 @@
+python-whois
+IP2Location
+dnspython
+cymruwhois
+tldextract
+cryptography
